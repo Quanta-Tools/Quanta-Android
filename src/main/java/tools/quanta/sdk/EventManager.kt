@@ -1,125 +1,216 @@
 package tools.quanta.sdk
 
+import android.content.Context
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import kotlin.coroutines.resume
+import kotlin.math.pow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import tools.quanta.sdk.model.EventTask
 import tools.quanta.sdk.network.NetworkClient
 import tools.quanta.sdk.storage.LocalStorageManager
+import tools.quanta.sdk.util.QuantaLogger
 
-private const val RECORD_SEPARATOR = ""
-private const val UNIT_SEPARATOR = "" // Not used in the provided snippet
+private const val RECORD_SEPARATOR = "\u001E"
+private const val UNIT_SEPARATOR = "\u001F"
 
 class EventManager(
         private val localStorageManager: LocalStorageManager,
-        private val networkClient: NetworkClient // Assuming NetworkClient has a post method
+        private val networkClient: NetworkClient,
+        private val context: Context,
+        private val xmlResourceId: Int
 ) {
 
-    // It's good practice to allow injecting a CoroutineScope for testing
-    private val scope = CoroutineScope(Dispatchers.IO)
+    private val scope = CoroutineScope(Dispatchers.IO + Job())
+    private val logger = QuantaLogger(context, xmlResourceId)
+    private val _queue = mutableListOf<EventTask>()
+    private var _isProcessing = false
+    private val queueMutex = Mutex()
 
-    fun sendEvent(event: EventTask, callback: (Boolean) -> Unit) {
+    init {
+        loadQueue()
+        scope.launch { processQueue() }
+    }
+
+    fun addEvent(event: EventTask) {
         scope.launch {
-            val success =
-                    try {
-                        val url = "https://analytics-ingress.quanta.tools/ee/"
-
-                        var body = ""
-                        body += event.appId
-                        body += "$RECORD_SEPARATOR${event.time.time / 1000}"
-                        body += "$RECORD_SEPARATOR${event.event}"
-                        body += "$RECORD_SEPARATOR${event.revenue}"
-                        body += "$RECORD_SEPARATOR${event.addedArguments}"
-                        body += "$RECORD_SEPARATOR${event.userData}"
-                        event.abLetters?.let { body += "$RECORD_SEPARATOR$it" }
-
-                        val headers = mutableMapOf<String, String>()
-                        headers["Content-Type"] = "text/plain"
-
-                        localStorageManager.getString("tools.quanta.ab.version")?.let {
-                            headers["X-AB-Version"] = it
-                        }
-
-                        // Using HttpURLConnection directly as per NetworkClient's style,
-                        // but ideally NetworkClient would handle this.
-                        var connection: HttpURLConnection? = null
-                        try {
-                            val connectionUrl = URL(url)
-                            connection = connectionUrl.openConnection() as HttpURLConnection
-                            connection.requestMethod = "POST"
-                            connection.doOutput = true
-                            headers.forEach { (key, value) ->
-                                connection.setRequestProperty(key, value)
-                            }
-                            connection.connectTimeout = 5000 // 5 seconds
-                            connection.readTimeout = 5000 // 5 seconds
-
-                            val writer = OutputStreamWriter(connection.outputStream)
-                            writer.write(body)
-                            writer.flush()
-                            writer.close()
-
-                            val responseCode = connection.responseCode
-                            if (responseCode in 200..299) {
-                                try {
-                                    val reader =
-                                            BufferedReader(
-                                                    InputStreamReader(connection.inputStream)
-                                            )
-                                    val responseText = reader.readText()
-                                    reader.close()
-
-                                    if (responseText.isNotEmpty()) {
-                                        localStorageManager.saveData(
-                                                "tools.quanta.ab",
-                                                responseText
-                                        )
-                                        // this.setAbJson(responseText); // Need to define how to
-                                        // handle this
-                                    }
-
-                                    connection.headerFields["X-AB-Version"]?.firstOrNull()?.let {
-                                            abVersionHeader ->
-                                        localStorageManager.saveData(
-                                                "tools.quanta.ab.version",
-                                                abVersionHeader
-                                        )
-                                    }
-                                } catch (e: Exception) {
-                                    // Ignore parsing errors
-                                    println("Error parsing response: ${e.message}")
-                                }
-                                true
-                            } else {
-                                println("Failed to send event. Response code: $responseCode")
-                                false
-                            }
-                        } catch (e: Exception) {
-                            println("Failed to send event: ${e.message}")
-                            false
-                        } finally {
-                            connection?.disconnect()
-                        }
-                    } catch (error: Exception) {
-                        println("Failed to send event: ${error.message}")
-                        false
-                    }
-            callback(success)
+            queueMutex.withLock {
+                _queue.add(event)
+                saveQueue()
+            }
+            processQueue()
         }
     }
 
-    // Placeholder for debugError, adapt as needed
-    private fun debugError(message: String, error: Throwable?) {
-        println("$message ${error?.localizedMessage ?: ""}")
+    private suspend fun sendEventSuspend(event: EventTask): Boolean {
+        return suspendCancellableCoroutine { continuation ->
+            executeNetworkRequest(event) { success ->
+                if (continuation.isActive) {
+                    continuation.resume(success)
+                }
+            }
+        }
     }
 
-    // Placeholder for setAbJson, adapt as needed
-    // private fun setAbJson(json: String) {
-    //     // Implement your logic to parse and use the AB test JSON
-    // }
+    private suspend fun processQueue() {
+        queueMutex.withLock {
+            if (_isProcessing || _queue.isEmpty()) {
+                return@withLock
+            }
+            _isProcessing = true
+        }
+
+        var failures = 0
+
+        while (true) {
+            val eventToProcess = queueMutex.withLock { _queue.firstOrNull() } ?: break
+
+            if (failures > 0) {
+                val delayMillis = (1.5.pow(failures - 1) * 500).toLong()
+                delay(delayMillis)
+            }
+
+            val success = sendEventSuspend(eventToProcess)
+
+            val eventAgeHours =
+                    (System.currentTimeMillis() - eventToProcess.time.time) / (1000 * 60 * 60)
+
+            if (success || failures >= 27 || eventAgeHours > 48) {
+                queueMutex.withLock {
+                    _queue.removeFirstOrNull()
+                    failures = 0
+                    saveQueue()
+                }
+            } else {
+                failures++
+            }
+            delay(100)
+        }
+
+        queueMutex.withLock { _isProcessing = false }
+    }
+
+    private fun saveQueue() {
+        scope.launch {
+            queueMutex.withLock {
+                try {
+                    val serializedQueue = Json.encodeToString(_queue)
+                    localStorageManager.saveData("event_queue", serializedQueue)
+                } catch (e: Exception) {
+                    logger.e("Error saving event queue: ${e.message}", e)
+                }
+            }
+        }
+    }
+
+    private fun loadQueue() {
+        scope.launch {
+            queueMutex.withLock {
+                val serializedQueue = localStorageManager.getString("event_queue")
+                if (!serializedQueue.isNullOrEmpty()) {
+                    try {
+                        val deserializedQueue =
+                                Json.decodeFromString<List<EventTask>>(serializedQueue)
+                        _queue.clear()
+                        _queue.addAll(deserializedQueue)
+                    } catch (e: Exception) {
+                        logger.e("Error loading event queue: ${e.message}", e)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun executeNetworkRequest(
+            eventDetails: EventTask,
+            completionHandler: (Boolean) -> Unit
+    ) {
+        scope.launch {
+            var eventSentSuccessfully = false
+            var connection: HttpURLConnection? = null
+            try {
+                val url = URL("https://analytics-ingress.quanta.tools/ee/")
+                connection = url.openConnection() as? HttpURLConnection
+
+                if (connection == null) {
+                    logger.e("Failed to send event: Could not establish HttpURLConnection.")
+                } else {
+                    var body = ""
+                    body += eventDetails.appId
+                    body += "$RECORD_SEPARATOR${eventDetails.time.time / 1000}"
+                    body += "$RECORD_SEPARATOR${eventDetails.event}"
+                    body += "$RECORD_SEPARATOR${eventDetails.revenue}"
+                    body += "$RECORD_SEPARATOR${eventDetails.addedArguments}"
+                    body += "$RECORD_SEPARATOR${eventDetails.userData}"
+                    eventDetails.abLetters?.let { body += "$RECORD_SEPARATOR$it" }
+
+                    val headers = mutableMapOf<String, String>()
+                    headers["Content-Type"] = "text/plain"
+                    localStorageManager.getString("tools.quanta.ab.version")?.let {
+                        headers["X-AB-Version"] = it
+                    }
+
+                    connection.requestMethod = "POST"
+                    connection.doOutput = true
+                    headers.forEach { (key, value) -> connection.setRequestProperty(key, value) }
+                    connection.connectTimeout = 5000
+                    connection.readTimeout = 5000
+
+                    OutputStreamWriter(connection.outputStream).use { writer ->
+                        writer.write(body)
+                        writer.flush()
+                    }
+
+                    val responseCode = connection.responseCode
+                    if (responseCode in 200..299) {
+                        try {
+                            BufferedReader(InputStreamReader(connection.inputStream)).use { reader
+                                ->
+                                val responseText = reader.readText()
+                                if (responseText.isNotEmpty()) {
+                                    localStorageManager.saveData("tools.quanta.ab", responseText)
+                                }
+                            }
+                            connection.headerFields["X-AB-Version"]?.firstOrNull()?.let {
+                                    abVersionHeaderValue ->
+                                localStorageManager.saveData(
+                                        "tools.quanta.ab.version",
+                                        abVersionHeaderValue
+                                )
+                            }
+                            eventSentSuccessfully = true
+                        } catch (responseParsingException: Exception) {
+                            logger.e(
+                                    "Error parsing response: ${responseParsingException.message}",
+                                    responseParsingException
+                            )
+                        }
+                    } else {
+                        logger.w("Failed to send event. Response code: $responseCode")
+                    }
+                }
+            } catch (networkOrSetupException: Exception) {
+                logger.e(
+                        "Network or setup error during event sending: ${networkOrSetupException.message}",
+                        networkOrSetupException
+                )
+            } finally {
+                connection?.disconnect()
+                completionHandler(eventSentSuccessfully)
+            }
+        }
+    }
 }
