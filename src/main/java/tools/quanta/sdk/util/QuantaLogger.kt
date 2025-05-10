@@ -5,6 +5,11 @@ import android.content.pm.ApplicationInfo
 import android.util.Log
 import tools.quanta.sdk.config.ConfigReader
 
+/// This file does not send log events to the server.
+/// Instead, it's used for printing out log messages
+/// to the developer console during development.
+/// For sending log events to the server, use the EventManager class.
+
 class QuantaLogger(context: Context, xmlResourceId: Int) {
 
     private val configReader: ConfigReader = ConfigReader(context, xmlResourceId)
