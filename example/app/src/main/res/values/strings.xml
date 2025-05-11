@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Quanta Test App</string>
+    <string name="btn_log_simple_event">Log Simple Event</string>
+    <string name="btn_log_event_with_args">Log Event with Arguments</string>
+    <string name="btn_log_event_with_revenue">Log Event with Revenue</string>
+    <string name="event_logged">Event Logged</string>
+    <string name="event_log_failed">Event Log Failed</string>
+    <string name="btn_show_user_id">Show User ID</string>
+</resources>

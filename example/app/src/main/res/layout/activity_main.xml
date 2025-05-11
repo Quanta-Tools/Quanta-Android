@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <Button
+        android:id="@+id/btnLogSimpleEvent"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:text="@string/btn_log_simple_event"
+        app:layout_constraintBottom_toTopOf="@+id/btnLogEventWithArgs"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_chainStyle="packed" />
+
+    <Button
+        android:id="@+id/btnLogEventWithArgs"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/btn_log_event_with_args"
+        app:layout_constraintBottom_toTopOf="@+id/btnLogEventWithRevenue"
+        app:layout_constraintEnd_toEndOf="@+id/btnLogSimpleEvent"
+        app:layout_constraintStart_toStartOf="@+id/btnLogSimpleEvent"
+        app:layout_constraintTop_toBottomOf="@+id/btnLogSimpleEvent" />
+
+    <Button
+        android:id="@+id/btnLogEventWithRevenue"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/btn_log_event_with_revenue"
+        app:layout_constraintBottom_toTopOf="@+id/btnShowUserId"
+        app:layout_constraintEnd_toEndOf="@+id/btnLogEventWithArgs"
+        app:layout_constraintStart_toStartOf="@+id/btnLogEventWithArgs"
+        app:layout_constraintTop_toBottomOf="@+id/btnLogEventWithArgs" />
+
+    <Button
+        android:id="@+id/btnShowUserId"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/btn_show_user_id"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="@+id/btnLogEventWithRevenue"
+        app:layout_constraintStart_toStartOf="@+id/btnLogEventWithRevenue"
+        app:layout_constraintTop_toBottomOf="@+id/btnLogEventWithRevenue" />
+
+    <TextView
+        android:id="@+id/tvStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:textSize="16sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btnShowUserId" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

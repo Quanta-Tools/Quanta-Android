@@ -14,7 +14,8 @@ Add the following to your module-level `build.gradle.kts` file and use the lates
 
 ```gradle
 dependencies {
-    implementation("tools.quanta:sdk:LATEST_VERSION") // See latest above
+    // For VERSION, see number above, NO `v` prefix, e.g. `1.0.0`
+    implementation("tools.quanta:sdk:VERSION")
 }
 ```
 

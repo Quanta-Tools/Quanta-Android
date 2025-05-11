@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Quanta SDK Configuration -->
+    <string name="QuantaAppId">test_app_id</string>
+    <string name="tools.quanta.LogInDebug">true</string>
+    <string name="tools.quanta.LogInProd">false</string>
+</resources>
