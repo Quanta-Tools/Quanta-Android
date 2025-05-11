@@ -71,7 +71,7 @@ object Quanta {
      * preferably from a ContentProvider or Application class.
      */
     suspend fun initialize(appContext: Context) {
-        ConfigReader.initialize(context)
+        ConfigReader.initialize(appContext)
         initializationMutex.withLock {
             if (initialized) {
                 QuantaLogger.i("Quanta already initialized.")
