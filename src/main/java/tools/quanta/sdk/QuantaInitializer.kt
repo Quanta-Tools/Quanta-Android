@@ -39,8 +39,8 @@ class QuantaInitializer : ContentProvider() {
             } else {
                 Quanta.initialize(appContext)
             }
+            QuantaLogger.i("Quanta SDK Initialization Launched via QuantaInitializer.")
         }
-        QuantaLogger.i("Quanta SDK Initialization Launched via QuantaInitializer.")
         return true
     }
 
