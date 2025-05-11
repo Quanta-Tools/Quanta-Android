@@ -114,6 +114,6 @@ afterEvaluate {
 }
 
 tasks.wrapper {
-    gradleVersion = "8.2.2"
+    gradleVersion = "8.14"
     distributionType = Wrapper.DistributionType.BIN
 }
