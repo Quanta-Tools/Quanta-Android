@@ -33,6 +33,10 @@ jobs:
 
       - name: Publish with debug
         run: |
+          chmod +x expand.sh
+          ./expand.sh ~/.m2/settings.xml > ~/.m2/settings-resolved.xml
+          mv ~/.m2/settings-resolved.xml ~/.m2/settings.xml
+
           ./gradlew publish --no-daemon --info \
             -PreleaseVersion="${{ github.event.release.tag_name }}" \
             -PsigningKey="${{ secrets.SIGNING_KEY }}" \
