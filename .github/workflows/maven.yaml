@@ -38,6 +38,11 @@ jobs:
             -PreleaseVersion="${{ github.event.release.tag_name }}" \
             -PsigningKey="${{ secrets.SIGNING_KEY }}" \
             -PsigningPassword="${{ secrets.SIGNING_PASSWORD }}"
+            
+          # Check deployment status and trigger automatic publishing if needed
+          chmod +x check_deploy_status.sh
+          ./check_deploy_status.sh
         env:
+          # These should be your Portal Token values from central.sonatype.com
           MAVEN_USERNAME: ${{ secrets.OSSRH_TOKEN_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN_PASSWORD }}
