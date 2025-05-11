@@ -20,7 +20,6 @@ android {
     defaultConfig {
         minSdk = 21
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionName = project.version.toString()
     }
 
     buildFeatures { compose = true }
@@ -104,8 +103,8 @@ afterEvaluate {
                 val snapshotsRepo = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
                 url = if (version.toString().endsWith("SNAPSHOT")) snapshotsRepo else releasesRepo
                 credentials {
-                    username = findProperty("ossrhUsername") as String
-                    password = findProperty("ossrhPassword") as String
+                    username = findProperty("ossrhUsername")?.toString() ?: ""
+                    password = findProperty("ossrhPassword")?.toString() ?: ""
                 }
             }
         }
