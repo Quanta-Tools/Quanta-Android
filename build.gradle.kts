@@ -99,19 +99,8 @@ afterEvaluate {
         }
         repositories {
             maven {
-                name = "OSSRH"
+                name = "ossrh"
                 url = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
-                credentials {
-                    username = System.getenv("MAVEN_USERNAME") ?: ""
-                    password = System.getenv("MAVEN_PASSWORD") ?: ""
-
-                    if ((System.getenv("MAVEN_USERNAME") ?: "").isEmpty() || (System.getenv("MAVEN_PASSWORD") ?: "").isEmpty()) {
-                        println("MAVEN_USERNAME and MAVEN_PASSWORD must be set in the environment variables.")
-                    }
-                }
-                authentication {
-                    create<BasicAuthentication>("basic")
-                }
             }
         }
     }
