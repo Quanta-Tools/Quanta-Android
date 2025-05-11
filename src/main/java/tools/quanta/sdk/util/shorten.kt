@@ -1,4 +1,6 @@
-import java.util.Base64
+package tools.quanta.sdk.util
+
+import android.util.Base64
 import java.util.UUID
 
 public fun shortenUuid(uuid: UUID): String {
@@ -7,7 +9,10 @@ public fun shortenUuid(uuid: UUID): String {
     bb.putLong(uuid.mostSignificantBits)
     bb.putLong(uuid.leastSignificantBits)
 
-    return Base64.getUrlEncoder().withoutPadding().encodeToString(uuidBytes)
+    // Using Android's Base64 utility which is available since API 1
+    // FLAG_URL_SAFE provides the URL-safe encoding (using - and _ instead of + and /)
+    // FLAG_NO_PADDING removes the padding (=) characters
+    return Base64.encodeToString(uuidBytes, Base64.URL_SAFE or Base64.NO_PADDING)
 }
 
 public fun shorten(anyId: String): String {

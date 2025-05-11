@@ -60,13 +60,12 @@ object ConfigReader {
 
     fun getBoolean(key: String, defaultValue: Boolean = false): Boolean {
         checkInitialized()
-        // Bundle.getBoolean handles string values "true" and "false" correctly.
-        // It returns false if the key doesn't exist or if the value is not a boolean or a
-        // recognized string.
-        // To ensure our defaultValue is used if the key is entirely missing, we check containsKey.
         if (!metaDataBundle.containsKey(key)) {
             return defaultValue
         }
-        return metaDataBundle.getBoolean(key, defaultValue)
+        val str = metaDataBundle.getString(key) ?: ""
+
+        val char = str.lowercase().slice(0..0)
+        return (char == "y" || char == "t")
     }
 }

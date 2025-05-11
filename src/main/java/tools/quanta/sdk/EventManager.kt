@@ -24,8 +24,6 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import shorten
-import shortenUuid
 import tools.quanta.sdk.config.ConfigReader
 import tools.quanta.sdk.model.EventTask
 import tools.quanta.sdk.network.NetworkClient
@@ -34,6 +32,8 @@ import tools.quanta.sdk.util.QuantaLogger
 import tools.quanta.sdk.util.UserDataProvider
 import tools.quanta.sdk.util.getAbDict
 import tools.quanta.sdk.util.getAbLetters
+import tools.quanta.sdk.util.shorten
+import tools.quanta.sdk.util.shortenUuid
 
 private const val RECORD_SEPARATOR = "\u001E"
 private const val UNIT_SEPARATOR = "\u001F"
@@ -43,10 +43,10 @@ private const val UNIT_SEPARATOR = "\u001F"
  * handling. This class is responsible for initializing user and app identifiers, handling event
  * persistence, and communicating with the network client to send event data.
  *
- * This version of EventManager initializes its dependencies using an `initialize` method,
- * rather than requiring them as constructor parameters. The application should ensure that
- * any necessary global state (like Application Context) is available for the SDK to retrieve
- * during initialization.
+ * This version of EventManager initializes its dependencies using an `initialize` method, rather
+ * than requiring them as constructor parameters. The application should ensure that any necessary
+ * global state (like Application Context) is available for the SDK to retrieve during
+ * initialization.
  */
 object EventManager {
     private lateinit var context: Context
@@ -68,8 +68,8 @@ object EventManager {
     private val initializationMutex = Mutex()
 
     /**
-     * Initializes the EventManager with the application context.
-     * This method should be called once, preferably from a ContentProvider or Application class.
+     * Initializes the EventManager with the application context. This method should be called once,
+     * preferably from a ContentProvider or Application class.
      */
     suspend fun initialize(appContext: Context) {
         ConfigReader.initialize(context)
@@ -83,11 +83,12 @@ object EventManager {
             localStorageManager = LocalStorageManager(context)
             networkClient = NetworkClient()
             userDataProvider = UserDataProvider(context, QuantaLogger)
-
             _appId = shorten(ConfigReader.getString("QuantaAppId") ?: "")
+            initialized = true
+
             if (_appId.isEmpty()) {
                 QuantaLogger.e(
-                    "QuantaAppId is not set in config.xml. Please ensure it is configured for Quanta SDK to work."
+                        "QuantaAppId is not set in config.xml. Please ensure it is configured for Quanta SDK to work."
                 )
             } else {
                 postAppIdInitialization()
@@ -96,7 +97,6 @@ object EventManager {
             _abJson = localStorageManager.getString("tools.quanta.ab")
             _abLetters = calcAbLetters()
             _abDict = calcAbDict()
-            initialized = true
             QuantaLogger.i("EventManager initialized successfully.")
         }
     }
@@ -157,9 +157,7 @@ object EventManager {
 
         scope.launch { processQueue() }
 
-        val skipLaunchStr =
-            (ConfigReader.getString("SkipLaunchEvent") ?: "").lowercase().slice(0..0)
-        if (skipLaunchStr != "y" && skipLaunchStr != "t") {
+        if (!ConfigReader.getBoolean("SkipLaunchEvent", false)) {
             log("launch")
         }
     }
@@ -169,19 +167,19 @@ object EventManager {
      * arguments. Events are queued and processed asynchronously.
      *
      * @param event The name of the event to log. Should be concise.
-     * @param revenue. The revenue amount associated with this event (e.g., for purchases).
+     * @param revenue The revenue amount associated with this event (e.g., for purchases).
      * @param addedArguments Optional. A map of custom key-value pairs to associate with the event.
      * Defaults to an empty map.
-     * @param time Optional. The timestamp for when the event occurred. Defaults to the current system
-     * time.
+     * @param time Optional. The timestamp for when the event occurred. Defaults to the current
+     * system time.
      */
     public fun log(
-        event: String,
-        revenue: Double,
-        addedArguments: Map<String, String> = emptyMap(),
-        time: Date = Date()
+            event: String,
+            revenue: Double,
+            addedArguments: Map<String, String> = emptyMap(),
+            time: Date = Date()
     ) {
-        logInternal(event, revenue, addedArguments, time)
+        scope.launch { logInternal(event, revenue, addedArguments, time) }
     }
 
     /**
@@ -191,15 +189,15 @@ object EventManager {
      * @param event The name of the event to log. Should be concise.
      * @param addedArguments Optional. A map of custom key-value pairs to associate with the event.
      * Defaults to an empty map.
-     * @param time Optional. The timestamp for when the event occurred. Defaults to the current system
-     * time.
+     * @param time Optional. The timestamp for when the event occurred. Defaults to the current
+     * system time.
      */
     public fun log(
-        event: String,
-        addedArguments: Map<String, String> = emptyMap(),
-        time: Date = Date()
+            event: String,
+            addedArguments: Map<String, String> = emptyMap(),
+            time: Date = Date()
     ) {
-        logInternal(event, 0.0, addedArguments, time)
+        scope.launch { logInternal(event, 0.0, addedArguments, time) }
     }
 
     /**
@@ -215,41 +213,51 @@ object EventManager {
      * system time.
      */
     public fun log(
-        event: String,
-        revenue: Double = 0.0,
-        addedArguments: String = "",
-        time: Date = Date()
+            event: String,
+            revenue: Double = 0.0,
+            addedArguments: String = "",
+            time: Date = Date()
     ) {
-        logInternal(event, revenue, addedArguments, time)
+        scope.launch { logInternal(event, revenue, addedArguments, time) }
     }
 
-    private fun logInternal(
-        event: String,
-        revenue: Double,
-        addedArguments: Any, // Can be Map<String, String> or String
-        time: Date
-    ) {
-        // _initialized is set to true at the end of the init block.
-        // The main concern for logging is whether _appId is available.
+    private suspend fun waitForInitialization(): Boolean {
+        val startTime = System.currentTimeMillis()
+        val timeoutMillis = 10000L // 10 seconds timeout
 
-        if (_appId.isEmpty()) {
-            // Attempt to load _appId if it wasn't available during init or got cleared.
-            val freshAppId = ConfigReader.getString("QuantaAppId")
-            if (!freshAppId.isNullOrEmpty()) {
-                _appId = freshAppId
-                postAppIdInitialization()
-            } else {
-                // If _appId is still empty after an attempt to refresh it.
-                QuantaLogger.e("QuantaAppId is missing. Event logging aborted.")
+        while (!initialized && System.currentTimeMillis() - startTime < timeoutMillis) {
+            delay(100) // Wait for 100ms before checking again
+        }
+
+        return initialized
+    }
+
+    private suspend fun logInternal(
+            event: String,
+            revenue: Double,
+            addedArguments: Any, // Can be Map<String, String> or String
+            time: Date
+    ) {
+        if (!initialized) {
+            // Wait for initialization for up to 10 seconds
+            if (!waitForInitialization()) {
+                QuantaLogger.e(
+                        "EventManager not initialized. Call initialize() first. Event logging aborted."
+                )
                 return
             }
+        }
+
+        if (_appId.isEmpty()) {
+            QuantaLogger.e("QuantaAppId is empty. Event logging aborted.")
+            return
         }
 
         // Proceed with logging logic using the (now hopefully non-empty) _appId.
         var mutableEvent = event
         if (mutableEvent.length > 200) {
             QuantaLogger.w(
-                "Event name is too long. Event name + args should be 200 characters or less. It will be truncated."
+                    "Event name is too long. Event name + args should be 200 characters or less. It will be truncated."
             )
             mutableEvent = mutableEvent.substring(0, 200)
         }
@@ -280,31 +288,31 @@ object EventManager {
 
         if (mutableEvent.length + argString.length > 200) {
             QuantaLogger.w(
-                "Added arguments are too long. Event name + args should be 200 characters or less. They will be truncated."
+                    "Added arguments are too long. Event name + args should be 200 characters or less. They will be truncated."
             )
             val remainingLength = 200 - mutableEvent.length
             argString =
-                if (remainingLength > 0) {
-                    argString.substring(0, kotlin.math.min(argString.length, remainingLength))
-                } else {
-                    "" // Event name itself is 200 chars, no space for args
-                }
+                    if (remainingLength > 0) {
+                        argString.substring(0, kotlin.math.min(argString.length, remainingLength))
+                    } else {
+                        "" // Event name itself is 200 chars, no space for args
+                    }
         }
 
         val userData = userDataProvider.getUserData()
         val revenueString = stringForDouble(revenue)
 
         val eventTask =
-            EventTask(
-                appId = _appId, // Use the potentially updated _appId
-                userData = userData,
-                event = safe(mutableEvent),
-                revenue = revenueString,
-                addedArguments = safe(argString, true),
-                userId = _userId,
-                time = time,
-                abLetters = _abLetters
-            )
+                EventTask(
+                        appId = _appId, // Use the potentially updated _appId
+                        userData = userData,
+                        event = safe(mutableEvent),
+                        revenue = revenueString,
+                        addedArguments = safe(argString, true),
+                        userId = _userId,
+                        time = time,
+                        abLetters = _abLetters
+                )
         addEvent(eventTask)
     }
 
@@ -380,7 +388,7 @@ object EventManager {
             val success = sendEventSuspend(eventToProcess)
 
             val eventAgeHours =
-                (System.currentTimeMillis() - eventToProcess.time.time) / (1000 * 60 * 60)
+                    (System.currentTimeMillis() - eventToProcess.time.time) / (1000 * 60 * 60)
 
             if (success || failures >= 27 || eventAgeHours > 48) {
                 queueMutex.withLock {
@@ -417,7 +425,7 @@ object EventManager {
                 if (!serializedQueue.isNullOrEmpty()) {
                     try {
                         val deserializedQueue =
-                            Json.decodeFromString<List<EventTask>>(serializedQueue)
+                                Json.decodeFromString<List<EventTask>>(serializedQueue)
                         _queue.clear()
                         _queue.addAll(deserializedQueue)
                     } catch (e: Exception) {
@@ -436,8 +444,8 @@ object EventManager {
     }
 
     private fun executeNetworkRequest(
-        eventDetails: EventTask,
-        completionHandler: (Boolean) -> Unit
+            eventDetails: EventTask,
+            completionHandler: (Boolean) -> Unit
     ) {
         scope.launch {
             var eventSentSuccessfully = false
@@ -479,24 +487,25 @@ object EventManager {
                     val responseCode = connection.responseCode
                     if (responseCode in 200..299) {
                         try {
-                            BufferedReader(InputStreamReader(connection.inputStream)).use { reader ->
+                            BufferedReader(InputStreamReader(connection.inputStream)).use { reader
+                                ->
                                 val responseText = reader.readText()
                                 if (responseText.isNotEmpty()) {
                                     setAbString(responseText)
                                 }
                             }
                             connection.headerFields["X-AB-Version"]?.firstOrNull()?.let {
-                                abVersionHeaderValue ->
+                                    abVersionHeaderValue ->
                                 localStorageManager.saveData(
-                                    "tools.quanta.ab.version",
-                                    abVersionHeaderValue
+                                        "tools.quanta.ab.version",
+                                        abVersionHeaderValue
                                 )
                             }
                             eventSentSuccessfully = true
                         } catch (responseParsingException: Exception) {
                             QuantaLogger.e(
-                                "Error parsing response: ${responseParsingException.message}",
-                                responseParsingException
+                                    "Error parsing response: ${responseParsingException.message}",
+                                    responseParsingException
                             )
                         }
                     } else {
@@ -505,8 +514,8 @@ object EventManager {
                 }
             } catch (networkOrSetupException: Exception) {
                 QuantaLogger.e(
-                    "Network or setup error during event sending: ${networkOrSetupException.message}",
-                    networkOrSetupException
+                        "Network or setup error during event sending: ${networkOrSetupException.message}",
+                        networkOrSetupException
                 )
             } finally {
                 connection?.disconnect()
