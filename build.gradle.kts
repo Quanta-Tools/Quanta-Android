@@ -100,7 +100,7 @@ afterEvaluate {
         repositories {
             maven {
                 name = "ossrh"
-                url = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
+                url = uri("https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/")
                 credentials(HttpHeaderCredentials::class) {
                     name = providers.gradleProperty("ossrhAuthHeaderName").get()
                     value = providers.gradleProperty("ossrhAuthHeaderValue").get()
