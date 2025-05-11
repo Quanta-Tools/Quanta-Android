@@ -18,6 +18,14 @@ jobs:
         with:
           gpg_private_key: ${{ secrets.SIGNING_KEY }}
           passphrase: ${{ secrets.SIGNING_PASSWORD }}
+      - name: Set up Maven Central Repository
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          server-id: ossrh
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
       - name: Publish artifacts
         run: |
           ./gradlew publish \
@@ -27,3 +35,6 @@ jobs:
             -PossrhPassword="${{ secrets.OSSRH_PASSWORD }}" \
             -PsigningKey="${{ secrets.SIGNING_KEY }}" \
             -PsigningPassword="${{ secrets.SIGNING_PASSWORD }}"
+        env:
+          MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}

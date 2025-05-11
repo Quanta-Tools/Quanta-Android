@@ -99,12 +99,11 @@ afterEvaluate {
         }
         repositories {
             maven {
-                val releasesRepo = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
-                val snapshotsRepo = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
-                url = if (version.toString().endsWith("SNAPSHOT")) snapshotsRepo else releasesRepo
+                name = "OSSRH"
+                url = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
                 credentials {
-                    username = findProperty("ossrhUsername")?.toString() ?: ""
-                    password = findProperty("ossrhPassword")?.toString() ?: ""
+                    username = findProperty("ossrhUsername")?.toString() ?: System.getenv("MAVEN_USERNAME") ?: ""
+                    password = findProperty("ossrhPassword")?.toString() ?: System.getenv("MAVEN_PASSWORD") ?: ""
                 }
             }
         }
