@@ -12,7 +12,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "11" # or your target JDK :contentReference[oaicite:22]{index=22}
+          java-version: "17" # or your target JDK :contentReference[oaicite:22]{index=22}
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@v5 # load private key into runner :contentReference[oaicite:23]{index=23}
         with:
