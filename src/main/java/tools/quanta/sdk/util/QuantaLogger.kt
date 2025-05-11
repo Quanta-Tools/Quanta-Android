@@ -6,7 +6,7 @@ import tools.quanta.sdk.config.ConfigReader
 /// This file does not send log events to the server.
 /// Instead, it's used for printing out log messages
 /// to the developer console during development.
-/// For sending log events to the server, use the EventManager class.
+/// For sending log events to the server, use the Quanta class.
 
 object QuantaLogger {
     public var isDebugModeEnabled: Boolean = false

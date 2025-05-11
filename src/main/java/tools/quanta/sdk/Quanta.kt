@@ -43,12 +43,11 @@ private const val UNIT_SEPARATOR = "\u001F"
  * handling. This class is responsible for initializing user and app identifiers, handling event
  * persistence, and communicating with the network client to send event data.
  *
- * This version of EventManager initializes its dependencies using an `initialize` method, rather
- * than requiring them as constructor parameters. The application should ensure that any necessary
- * global state (like Application Context) is available for the SDK to retrieve during
- * initialization.
+ * This version of Quanta initializes its dependencies using an `initialize` method, rather than
+ * requiring them as constructor parameters. The application should ensure that any necessary global
+ * state (like Application Context) is available for the SDK to retrieve during initialization.
  */
-object EventManager {
+object Quanta {
     private lateinit var context: Context
     private var xmlResourceId: Int = 0
     private lateinit var localStorageManager: LocalStorageManager
@@ -68,14 +67,14 @@ object EventManager {
     private val initializationMutex = Mutex()
 
     /**
-     * Initializes the EventManager with the application context. This method should be called once,
+     * Initializes the Quanta with the application context. This method should be called once,
      * preferably from a ContentProvider or Application class.
      */
     suspend fun initialize(appContext: Context) {
         ConfigReader.initialize(context)
         initializationMutex.withLock {
             if (initialized) {
-                QuantaLogger.i("EventManager already initialized.")
+                QuantaLogger.i("Quanta already initialized.")
                 return
             }
             context = appContext
@@ -97,7 +96,7 @@ object EventManager {
             _abJson = localStorageManager.getString("tools.quanta.ab")
             _abLetters = calcAbLetters()
             _abDict = calcAbDict()
-            QuantaLogger.i("EventManager initialized successfully.")
+            QuantaLogger.i("Quanta initialized successfully.")
         }
     }
 
@@ -242,7 +241,7 @@ object EventManager {
             // Wait for initialization for up to 10 seconds
             if (!waitForInitialization()) {
                 QuantaLogger.e(
-                        "EventManager not initialized. Call initialize() first. Event logging aborted."
+                        "Quanta not initialized. Call initialize() first. Event logging aborted."
                 )
                 return
             }

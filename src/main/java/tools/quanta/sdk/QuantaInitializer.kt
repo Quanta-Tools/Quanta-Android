@@ -11,8 +11,8 @@ import kotlinx.coroutines.launch
 import tools.quanta.sdk.util.QuantaLogger
 
 /**
- * Initializes the Quanta SDK when the application starts. This ContentProvider ensures that
- * EventManager is initialized early in the application lifecycle.
+ * Initializes the Quanta SDK when the application starts. This ContentProvider ensures that Quanta
+ * is initialized early in the application lifecycle.
  */
 class QuantaInitializer : ContentProvider() {
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -35,9 +35,9 @@ class QuantaInitializer : ContentProvider() {
                 QuantaLogger.w(
                         "QuantaInitializer: ApplicationContext is null. Using context, but this might lead to memory leaks if not handled carefully elsewhere."
                 )
-                EventManager.initialize(context)
+                Quanta.initialize(context)
             } else {
-                EventManager.initialize(appContext)
+                Quanta.initialize(appContext)
             }
         }
         QuantaLogger.i("Quanta SDK Initialization Launched via QuantaInitializer.")
