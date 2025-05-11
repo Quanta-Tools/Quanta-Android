@@ -105,6 +105,9 @@ afterEvaluate {
                     username = findProperty("ossrhUsername")?.toString() ?: System.getenv("MAVEN_USERNAME") ?: ""
                     password = findProperty("ossrhPassword")?.toString() ?: System.getenv("MAVEN_PASSWORD") ?: ""
                 }
+                authentication {
+                    create<BasicAuthentication>("basic")
+                }
             }
         }
     }
