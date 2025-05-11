@@ -48,7 +48,7 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     
     // Quanta SDK
-    implementation("tools.quanta:sdk:0.0.2")
+    implementation("tools.quanta:sdk:0.0.3")
     
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1")
