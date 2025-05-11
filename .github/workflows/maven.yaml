@@ -26,10 +26,14 @@ jobs:
           server-id: ossrh
           server-username: ${{ secrets.OSSRH_TOKEN_USERNAME }}
           server-password: ${{ secrets.OSSRH_TOKEN_PASSWORD }}
-      - name: Publish artifacts
+      - name: Show generated settings.xml
         run: |
-          ./gradlew publish \
-            --no-daemon \
+          echo "=== ~/.m2/settings.xml ==="
+          cat ~/.m2/settings.xml
+
+      - name: Publish with debug
+        run: |
+          ./gradlew publish --no-daemon --info \
             -PreleaseVersion="${{ github.event.release.tag_name }}" \
             -PsigningKey="${{ secrets.SIGNING_KEY }}" \
             -PsigningPassword="${{ secrets.SIGNING_PASSWORD }}"
