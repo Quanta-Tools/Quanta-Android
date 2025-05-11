@@ -19,10 +19,11 @@ jobs:
           gpg_private_key: ${{ secrets.SIGNING_KEY }}
           passphrase: ${{ secrets.SIGNING_PASSWORD }}
       - name: Publish artifacts
-        run: ./gradlew publish \
-          --no-daemon \
-          -PreleaseVersion="${{ github.event.release.tag_name }}" \
-          -PossrhUsername="${{ secrets.OSSRH_USERNAME }}" \
-          -PossrhPassword="${{ secrets.OSSRH_PASSWORD }}" \
-          -PsigningKey="${{ secrets.SIGNING_KEY }}" \
-          -PsigningPassword="${{ secrets.SIGNING_PASSWORD }}"
+        run: |
+          ./gradlew publish \
+            --no-daemon \
+            -PreleaseVersion="${{ github.event.release.tag_name }}" \
+            -PossrhUsername="${{ secrets.OSSRH_USERNAME }}" \
+            -PossrhPassword="${{ secrets.OSSRH_PASSWORD }}" \
+            -PsigningKey="${{ secrets.SIGNING_KEY }}" \
+            -PsigningPassword="${{ secrets.SIGNING_PASSWORD }}"
