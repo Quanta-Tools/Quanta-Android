@@ -1,68 +1,72 @@
 package tools.quanta.sdk.config
 
 import android.content.Context
-import android.content.res.XmlResourceParser
-import org.xmlpull.v1.XmlPullParser
-import org.xmlpull.v1.XmlPullParserException
-import java.io.IOException
+import android.content.pm.PackageManager
+import android.os.Bundle
+import android.util.Log
 
-class ConfigReader(private val context: Context, private val xmlResourceId: Int) {
+object ConfigReader {
 
-    private val configData = mutableMapOf<String, Any>()
+    private lateinit var appContext: Context
+    private var metaDataBundle: Bundle = Bundle() // Initialize with an empty Bundle
+    private var initialized = false
+    private val initializationLock = Any()
 
-    init {
-        parseConfigXml()
+    const val KEY_APP_ID = "tools.quanta.AppId"
+    const val KEY_LOG_IN_DEBUG = "tools.quanta.LogInDebug"
+    const val KEY_LOG_IN_PROD = "tools.quanta.LogInProd"
+
+    fun initialize(context: Context) {
+        synchronized(initializationLock) {
+            if (initialized) {
+                return
+            }
+            appContext = context.applicationContext
+            try {
+                val appInfo =
+                        appContext.packageManager.getApplicationInfo(
+                                appContext.packageName,
+                                PackageManager.GET_META_DATA
+                        )
+                // If appInfo.metaData is null, keep metaDataBundle as the empty Bundle
+                appInfo.metaData?.let { metaDataBundle = it }
+            } catch (e: PackageManager.NameNotFoundException) {
+                Log.e("ConfigReader", "Failed to load application info: ${e.message}", e)
+                // metaDataBundle remains an empty Bundle
+            }
+            initialized = true
+            Log.i("ConfigReader", "ConfigReader initialized.")
+        }
     }
 
-    private fun parseConfigXml() {
-        val parser: XmlResourceParser = context.resources.getXml(xmlResourceId)
-        try {
-            var eventType = parser.eventType
-            while (eventType != XmlPullParser.END_DOCUMENT) {
-                when (eventType) {
-                    XmlPullParser.START_TAG -> {
-                        when (parser.name) {
-                            "string" -> {
-                                val name = parser.getAttributeValue(null, "name")
-                                if (name != null && parser.next() == XmlPullParser.TEXT) {
-                                    configData[name] = parser.text
-                                }
-                            }
-                            "integer" -> {
-                                val name = parser.getAttributeValue(null, "name")
-                                if (name != null && parser.next() == XmlPullParser.TEXT) {
-                                    configData[name] = parser.text.toIntOrNull() ?: 0
-                                }
-                            }
-                            "boolean" -> {
-                                val name = parser.getAttributeValue(null, "name")
-                                if (name != null && parser.next() == XmlPullParser.TEXT) {
-                                    configData[name] = parser.text.toBooleanStrictOrNull() ?: false
-                                }
-                            }
-                        }
-                    }
-                }
-                eventType = parser.next()
-            }
-        } catch (e: XmlPullParserException) {
-            e.printStackTrace() // Handle parsing errors
-        } catch (e: IOException) {
-            e.printStackTrace() // Handle I/O errors
-        } finally {
-            parser.close()
+    private fun checkInitialized() {
+        if (!initialized) {
+            val errorMessage =
+                    "ConfigReader not initialized. Call ConfigReader.initialize(context) first."
+            Log.e("ConfigReader", errorMessage)
+            throw IllegalStateException(errorMessage)
         }
     }
 
     fun getString(key: String, defaultValue: String? = null): String? {
-        return configData[key] as? String ?: defaultValue
+        checkInitialized()
+        return metaDataBundle.getString(key, defaultValue)
     }
 
     fun getInt(key: String, defaultValue: Int = 0): Int {
-        return configData[key] as? Int ?: defaultValue
+        checkInitialized()
+        return metaDataBundle.getInt(key, defaultValue)
     }
 
     fun getBoolean(key: String, defaultValue: Boolean = false): Boolean {
-        return configData[key] as? Boolean ?: defaultValue
+        checkInitialized()
+        // Bundle.getBoolean handles string values "true" and "false" correctly.
+        // It returns false if the key doesn't exist or if the value is not a boolean or a
+        // recognized string.
+        // To ensure our defaultValue is used if the key is entirely missing, we check containsKey.
+        if (!metaDataBundle.containsKey(key)) {
+            return defaultValue
+        }
+        return metaDataBundle.getBoolean(key, defaultValue)
     }
 }

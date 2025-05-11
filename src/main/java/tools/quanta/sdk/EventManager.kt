@@ -43,46 +43,66 @@ private const val UNIT_SEPARATOR = "\u001F"
  * handling. This class is responsible for initializing user and app identifiers, handling event
  * persistence, and communicating with the network client to send event data.
  *
- * @param localStorageManager Manages saving and retrieving data from local storage.
- * @param networkClient Handles network communication for sending events.
- * @param context The Android application context.
- * @param xmlResourceId The resource ID of the XML configuration file.
+ * This version of EventManager initializes its dependencies using an `initialize` method,
+ * rather than requiring them as constructor parameters. The application should ensure that
+ * any necessary global state (like Application Context) is available for the SDK to retrieve
+ * during initialization.
  */
-class EventManager(
-        private val localStorageManager: LocalStorageManager,
-        private val networkClient: NetworkClient,
-        private val context: Context,
-        private val xmlResourceId: Int
-) {
-
+object EventManager {
+    private lateinit var context: Context
+    private var xmlResourceId: Int = 0
+    private lateinit var localStorageManager: LocalStorageManager
+    private lateinit var networkClient: NetworkClient
     private val scope = CoroutineScope(Dispatchers.IO + Job())
-    private val logger = QuantaLogger(context, xmlResourceId)
+    private lateinit var userDataProvider: UserDataProvider
+
     private val _queue = mutableListOf<EventTask>()
     private var _isProcessing = false
     private val queueMutex = Mutex()
-    private val userDataProvider: UserDataProvider
-    private val configReader: ConfigReader
     private var _appId: String = ""
     private var _userId: String = ""
     private var _abJson: String? = null
     private var _abLetters: String = ""
     private var _abDict: Map<String, String> = emptyMap()
+    private var initialized = false
+    private val initializationMutex = Mutex()
 
-    init {
-        configReader = ConfigReader(context, xmlResourceId)
-        _appId = shorten(configReader.getString("QuantaAppId") ?: "")
-        _userId = generateUserId()
-        _abJson = localStorageManager.getString("tools.quanta.ab")
-        _abLetters = calcAbLetters()
-        _abDict = calcAbDict()
-        userDataProvider = UserDataProvider(context, logger)
-        if (_appId.isEmpty()) {
-            logger.e(
+    /**
+     * Initializes the EventManager with the application context.
+     * This method should be called once, preferably from a ContentProvider or Application class.
+     */
+    suspend fun initialize(appContext: Context) {
+        ConfigReader.initialize(context)
+        initializationMutex.withLock {
+            if (initialized) {
+                QuantaLogger.i("EventManager already initialized.")
+                return
+            }
+            context = appContext
+            xmlResourceId = retrieveDefaultXmlResourceIdInternal()
+            localStorageManager = LocalStorageManager(context)
+            networkClient = NetworkClient()
+            userDataProvider = UserDataProvider(context, QuantaLogger)
+
+            _appId = shorten(ConfigReader.getString("QuantaAppId") ?: "")
+            if (_appId.isEmpty()) {
+                QuantaLogger.e(
                     "QuantaAppId is not set in config.xml. Please ensure it is configured for Quanta SDK to work."
-            )
-        } else {
-            postAppIdInitialization()
+                )
+            } else {
+                postAppIdInitialization()
+            }
+            _userId = generateUserId()
+            _abJson = localStorageManager.getString("tools.quanta.ab")
+            _abLetters = calcAbLetters()
+            _abDict = calcAbDict()
+            initialized = true
+            QuantaLogger.i("EventManager initialized successfully.")
         }
+    }
+
+    private fun retrieveDefaultXmlResourceIdInternal(): Int {
+        return context.resources.getIdentifier("quanta_config", "xml", context.packageName)
     }
 
     private fun generateUserId(): String {
@@ -108,7 +128,7 @@ class EventManager(
             _userId = userId
             localStorageManager.saveData("tools.quanta.user.id", userId)
         } else {
-            logger.w("User ID cannot be empty. It will not be set.")
+            QuantaLogger.w("User ID cannot be empty. It will not be set.")
         }
     }
 
@@ -138,7 +158,7 @@ class EventManager(
         scope.launch { processQueue() }
 
         val skipLaunchStr =
-                (configReader.getString("SkipLaunchEvent") ?: "").lowercase().slice(0..0)
+            (ConfigReader.getString("SkipLaunchEvent") ?: "").lowercase().slice(0..0)
         if (skipLaunchStr != "y" && skipLaunchStr != "t") {
             log("launch")
         }
@@ -156,10 +176,10 @@ class EventManager(
      * time.
      */
     public fun log(
-            event: String,
-            revenue: Double
-            addedArguments: Map<String, String> = emptyMap(),
-            time: Date = Date()
+        event: String,
+        revenue: Double,
+        addedArguments: Map<String, String> = emptyMap(),
+        time: Date = Date()
     ) {
         logInternal(event, revenue, addedArguments, time)
     }
@@ -175,13 +195,12 @@ class EventManager(
      * time.
      */
     public fun log(
-            event: String,
-            addedArguments: Map<String, String> = emptyMap(),
-            time: Date = Date()
+        event: String,
+        addedArguments: Map<String, String> = emptyMap(),
+        time: Date = Date()
     ) {
         logInternal(event, 0.0, addedArguments, time)
     }
-
 
     /**
      * Logs an event with the specified details, including optional revenue and a pre-formatted
@@ -196,32 +215,32 @@ class EventManager(
      * system time.
      */
     public fun log(
-            event: String,
-            revenue: Double = 0.0,
-            addedArguments: String = "",
-            time: Date = Date()
+        event: String,
+        revenue: Double = 0.0,
+        addedArguments: String = "",
+        time: Date = Date()
     ) {
         logInternal(event, revenue, addedArguments, time)
     }
 
     private fun logInternal(
-            event: String,
-            revenue: Double,
-            addedArguments: Any, // Can be Map<String, String> or String
-            time: Date
+        event: String,
+        revenue: Double,
+        addedArguments: Any, // Can be Map<String, String> or String
+        time: Date
     ) {
         // _initialized is set to true at the end of the init block.
         // The main concern for logging is whether _appId is available.
 
         if (_appId.isEmpty()) {
             // Attempt to load _appId if it wasn't available during init or got cleared.
-            val freshAppId = configReader.getString("QuantaAppId")
+            val freshAppId = ConfigReader.getString("QuantaAppId")
             if (!freshAppId.isNullOrEmpty()) {
                 _appId = freshAppId
                 postAppIdInitialization()
             } else {
                 // If _appId is still empty after an attempt to refresh it.
-                logger.e("QuantaAppId is missing. Event logging aborted.")
+                QuantaLogger.e("QuantaAppId is missing. Event logging aborted.")
                 return
             }
         }
@@ -229,8 +248,8 @@ class EventManager(
         // Proceed with logging logic using the (now hopefully non-empty) _appId.
         var mutableEvent = event
         if (mutableEvent.length > 200) {
-            logger.w(
-                    "Event name is too long. Event name + args should be 200 characters or less. It will be truncated."
+            QuantaLogger.w(
+                "Event name is too long. Event name + args should be 200 characters or less. It will be truncated."
             )
             mutableEvent = mutableEvent.substring(0, 200)
         }
@@ -260,32 +279,32 @@ class EventManager(
         }
 
         if (mutableEvent.length + argString.length > 200) {
-            logger.w(
-                    "Added arguments are too long. Event name + args should be 200 characters or less. They will be truncated."
+            QuantaLogger.w(
+                "Added arguments are too long. Event name + args should be 200 characters or less. They will be truncated."
             )
             val remainingLength = 200 - mutableEvent.length
             argString =
-                    if (remainingLength > 0) {
-                        argString.substring(0, kotlin.math.min(argString.length, remainingLength))
-                    } else {
-                        "" // Event name itself is 200 chars, no space for args
-                    }
+                if (remainingLength > 0) {
+                    argString.substring(0, kotlin.math.min(argString.length, remainingLength))
+                } else {
+                    "" // Event name itself is 200 chars, no space for args
+                }
         }
 
         val userData = userDataProvider.getUserData()
         val revenueString = stringForDouble(revenue)
 
         val eventTask =
-                EventTask(
-                        appId = _appId, // Use the potentially updated _appId
-                        userData = userData,
-                        event = safe(mutableEvent),
-                        revenue = revenueString,
-                        addedArguments = safe(argString, true),
-                        userId = _userId,
-                        time = time,
-                        abLetters = _abLetters
-                )
+            EventTask(
+                appId = _appId, // Use the potentially updated _appId
+                userData = userData,
+                event = safe(mutableEvent),
+                revenue = revenueString,
+                addedArguments = safe(argString, true),
+                userId = _userId,
+                time = time,
+                abLetters = _abLetters
+            )
         addEvent(eventTask)
     }
 
@@ -361,7 +380,7 @@ class EventManager(
             val success = sendEventSuspend(eventToProcess)
 
             val eventAgeHours =
-                    (System.currentTimeMillis() - eventToProcess.time.time) / (1000 * 60 * 60)
+                (System.currentTimeMillis() - eventToProcess.time.time) / (1000 * 60 * 60)
 
             if (success || failures >= 27 || eventAgeHours > 48) {
                 queueMutex.withLock {
@@ -385,7 +404,7 @@ class EventManager(
                     val serializedQueue = Json.encodeToString(_queue)
                     localStorageManager.saveData("event_queue", serializedQueue)
                 } catch (e: Exception) {
-                    logger.e("Error saving event queue: ${e.message}", e)
+                    QuantaLogger.e("Error saving event queue: ${e.message}", e)
                 }
             }
         }
@@ -398,11 +417,11 @@ class EventManager(
                 if (!serializedQueue.isNullOrEmpty()) {
                     try {
                         val deserializedQueue =
-                                Json.decodeFromString<List<EventTask>>(serializedQueue)
+                            Json.decodeFromString<List<EventTask>>(serializedQueue)
                         _queue.clear()
                         _queue.addAll(deserializedQueue)
                     } catch (e: Exception) {
-                        logger.e("Error loading event queue: ${e.message}", e)
+                        QuantaLogger.e("Error loading event queue: ${e.message}", e)
                     }
                 }
             }
@@ -417,8 +436,8 @@ class EventManager(
     }
 
     private fun executeNetworkRequest(
-            eventDetails: EventTask,
-            completionHandler: (Boolean) -> Unit
+        eventDetails: EventTask,
+        completionHandler: (Boolean) -> Unit
     ) {
         scope.launch {
             var eventSentSuccessfully = false
@@ -428,7 +447,7 @@ class EventManager(
                 connection = url.openConnection() as? HttpURLConnection
 
                 if (connection == null) {
-                    logger.e("Failed to send event: Could not establish HttpURLConnection.")
+                    QuantaLogger.e("Failed to send event: Could not establish HttpURLConnection.")
                 } else {
                     var body = ""
                     body += eventDetails.appId
@@ -460,35 +479,34 @@ class EventManager(
                     val responseCode = connection.responseCode
                     if (responseCode in 200..299) {
                         try {
-                            BufferedReader(InputStreamReader(connection.inputStream)).use { reader
-                                ->
+                            BufferedReader(InputStreamReader(connection.inputStream)).use { reader ->
                                 val responseText = reader.readText()
                                 if (responseText.isNotEmpty()) {
                                     setAbString(responseText)
                                 }
                             }
                             connection.headerFields["X-AB-Version"]?.firstOrNull()?.let {
-                                    abVersionHeaderValue ->
+                                abVersionHeaderValue ->
                                 localStorageManager.saveData(
-                                        "tools.quanta.ab.version",
-                                        abVersionHeaderValue
+                                    "tools.quanta.ab.version",
+                                    abVersionHeaderValue
                                 )
                             }
                             eventSentSuccessfully = true
                         } catch (responseParsingException: Exception) {
-                            logger.e(
-                                    "Error parsing response: ${responseParsingException.message}",
-                                    responseParsingException
+                            QuantaLogger.e(
+                                "Error parsing response: ${responseParsingException.message}",
+                                responseParsingException
                             )
                         }
                     } else {
-                        logger.w("Failed to send event. Response code: $responseCode")
+                        QuantaLogger.w("Failed to send event. Response code: $responseCode")
                     }
                 }
             } catch (networkOrSetupException: Exception) {
-                logger.e(
-                        "Network or setup error during event sending: ${networkOrSetupException.message}",
-                        networkOrSetupException
+                QuantaLogger.e(
+                    "Network or setup error during event sending: ${networkOrSetupException.message}",
+                    networkOrSetupException
                 )
             } finally {
                 connection?.disconnect()

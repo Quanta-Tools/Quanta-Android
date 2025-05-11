@@ -8,11 +8,13 @@ This is the official Android SDK for Quanta.tools.
 
 **Option A: From Maven Central (Recommended for production)**
 
-Add the following to your module-level `build.gradle.kts` file:
+Add the following to your module-level `build.gradle.kts` file and use the latest version:
+
+![latest version shield](https://img.shields.io/github/v/release/Quanta-Tools/Quanta-Android)
 
 ```gradle
 dependencies {
-    implementation("tools.quanta:sdk:LATEST_VERSION") // Replace LATEST_VERSION with the actual latest version
+    implementation("tools.quanta:sdk:LATEST_VERSION") // See latest above
 }
 ```
 
@@ -55,32 +57,39 @@ If you have the SDK checked out locally and want to test changes before publishi
     }
     ```
 
-### 2. Configure your QuantaAppId
+### 2. Configure your QuantaAppId and other SDK settings
 
-The SDK requires a `QuantaAppId` to associate analytics data with your application.
+The SDK requires a `QuantaAppId` and can be configured with other settings directly in your app's `AndroidManifest.xml` file.
 
-1.  Create an XML file named `quanta_config.xml` (or any other name you prefer) in your app's `res/xml/` directory. If the directory doesn't exist, create it.
+1.  Open your app module's `AndroidManifest.xml` file.
+2.  Inside the `<application>` tag, add `<meta-data>` elements for your `QuantaAppId` and any other SDK configurations.
 
-2.  Add your `QuantaAppId` to this file:
+    For example:
 
     ```xml
-    <?xml version="1.0" encoding="utf-8"?>
-    <config>
-        <string name="QuantaAppId">YOUR_APP_ID_HERE</string>
-        <!-- You can add other SDK configuration values here as needed -->
-    </config>
+    <application
+        android:name=".MyApplication"
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher">
+
+        <!-- Other application elements -->
+
+        <!-- Quanta SDK Configuration -->
+        <meta-data
+            android:name="tools.quanta.AppId"
+            android:value="YOUR_APP_ID_HERE" />
+        <meta-data
+            android:name="tools.quanta.LogInProd"
+            android:value="true" /> <!-- Example: Enable logging in production -->
+        <meta-data
+            android:name="tools.quanta.LogInDebug"
+            android:value="true" /> <!-- Example: Enable logging in debug -->
+        <!-- Add other Quanta SDK meta-data tags as needed -->
+
+    </application>
     ```
 
-3.  When initializing the SDK or its components that require configuration (like `ConfigReader`), you will pass the resource ID of this XML file. For example:
-
-    ```kotlin
-    // In your Application class or relevant setup location
-    // import tools.quanta.sdk.config.ConfigReader
-    // import your.app.R // Import your app's R file
-
-    // val configReader = ConfigReader(applicationContext, R.xml.quanta_config)
-    // val appId = configReader.getString("QuantaAppId")
-    ```
+    Ensure you replace `"YOUR_APP_ID_HERE"` with your actual Quanta Application ID. The `ConfigReader` component of the SDK will automatically pick up these values.
 
 ## Basic Usage
 

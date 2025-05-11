@@ -1,7 +1,5 @@
 package tools.quanta.sdk.util
 
-import android.content.Context
-import android.content.pm.ApplicationInfo
 import android.util.Log
 import tools.quanta.sdk.config.ConfigReader
 
@@ -10,18 +8,20 @@ import tools.quanta.sdk.config.ConfigReader
 /// to the developer console during development.
 /// For sending log events to the server, use the EventManager class.
 
-class QuantaLogger(context: Context, xmlResourceId: Int) {
-
-    private val configReader: ConfigReader = ConfigReader(context, xmlResourceId)
-    private val isDebugModeEnabled: Boolean =
-            (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
-    private val isLogEnabledInConfig: Boolean = configReader.getBoolean("Log", false)
-
-    private val shouldLog: Boolean = isDebugModeEnabled || isLogEnabledInConfig
+object QuantaLogger {
+    public var isDebugModeEnabled: Boolean = false
     private val tag: String = "Quanta"
 
+    private fun shouldLog(): Boolean {
+        return if (isDebugModeEnabled) {
+            ConfigReader.getBoolean(key = ConfigReader.KEY_LOG_IN_DEBUG, defaultValue = true)
+        } else {
+            ConfigReader.getBoolean(key = ConfigReader.KEY_LOG_IN_PROD, defaultValue = false)
+        }
+    }
+
     fun log(message: String, throwable: Throwable? = null) {
-        if (!shouldLog) return
+        if (!shouldLog()) return
 
         if (throwable != null) {
             Log.d(tag, message, throwable)
@@ -30,8 +30,18 @@ class QuantaLogger(context: Context, xmlResourceId: Int) {
         }
     }
 
+    fun i(message: String, throwable: Throwable? = null) {
+        if (!shouldLog()) return
+
+        if (throwable != null) {
+            Log.i(tag, message, throwable)
+        } else {
+            Log.i(tag, message)
+        }
+    }
+
     fun e(message: String, throwable: Throwable? = null) {
-        if (!shouldLog) return
+        // always log errors
 
         if (throwable != null) {
             Log.e(tag, message, throwable)
@@ -41,7 +51,7 @@ class QuantaLogger(context: Context, xmlResourceId: Int) {
     }
 
     fun w(message: String, throwable: Throwable? = null) {
-        if (!shouldLog) return
+        if (!shouldLog()) return
 
         if (throwable != null) {
             Log.w(tag, message, throwable)
