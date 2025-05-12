@@ -480,10 +480,14 @@ object Quanta {
                     connection.connectTimeout = 5000
                     connection.readTimeout = 5000
 
-                    OutputStreamWriter(connection.outputStream).use { writer ->
-                        writer.write(body)
-                        writer.flush()
-                    }
+                    OutputStreamWriter(
+                                    connection.outputStream,
+                                    java.nio.charset.StandardCharsets.UTF_8
+                            )
+                            .use { writer ->
+                                writer.write(body)
+                                writer.flush()
+                            }
 
                     val responseCode = connection.responseCode
                     if (responseCode in 200..299) {

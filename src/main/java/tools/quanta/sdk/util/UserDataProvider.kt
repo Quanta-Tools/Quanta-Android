@@ -15,7 +15,7 @@ class UserDataProvider(
     private val installDate: String by lazy {
         try {
             val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-            packageInfo.firstInstallTime.toString()
+            (packageInfo.firstInstallTime / 1000).toInt().toString()
         } catch (e: Exception) {
             logger.e("UserDataProvider: Failed to get install date", e) // Use logger instance
             "" // Return empty string on error

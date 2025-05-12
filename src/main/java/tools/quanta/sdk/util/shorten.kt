@@ -13,6 +13,8 @@ public fun shortenUuid(uuid: UUID): String {
     // FLAG_URL_SAFE provides the URL-safe encoding (using - and _ instead of + and /)
     // FLAG_NO_PADDING removes the padding (=) characters
     return Base64.encodeToString(uuidBytes, Base64.URL_SAFE or Base64.NO_PADDING)
+            .replace("\r", "")
+            .replace("\n", "")
 }
 
 public fun shorten(anyId: String): String {
