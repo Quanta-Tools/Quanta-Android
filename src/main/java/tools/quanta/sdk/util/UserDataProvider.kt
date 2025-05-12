@@ -5,7 +5,7 @@ import android.content.pm.ApplicationInfo
 import android.os.Build
 import java.util.Locale
 
-private const val RECORD_SEPARATOR = "\u001F" // Unit Separator
+private const val RECORD_SEPARATOR = "\u001E"
 
 class UserDataProvider(
         private val context: Context,
