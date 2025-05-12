@@ -60,8 +60,6 @@ afterEvaluate {
             create<MavenPublication>("release") {
                 from(components["release"]) // Ensure POM includes dependencies from the 'release' component
 
-                // Publish the Android Library AAR
-                artifact(tasks.named("bundleReleaseAar"))
                 // Include sources
                 val sourcesJar by tasks.registering(Jar::class) {
                     archiveClassifier.set("sources")
