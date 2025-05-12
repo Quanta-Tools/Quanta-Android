@@ -44,13 +44,13 @@ android {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.22")
-    implementation("androidx.lifecycle:lifecycle-process:2.7.0")
-    implementation("androidx.compose.runtime:runtime:1.6.7")
-    implementation("androidx.compose.ui:ui:1.6.7")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
-    implementation("androidx.fragment:fragment-ktx:1.6.1")
+    api("org.jetbrains.kotlin:kotlin-stdlib:1.9.22")
+    api("androidx.lifecycle:lifecycle-process:2.7.0")
+    api("androidx.compose.runtime:runtime:1.6.7")
+    api("androidx.compose.ui:ui:1.6.7")
+    api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+    api("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
+    api("androidx.fragment:fragment-ktx:1.6.1")
     api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 }
 
