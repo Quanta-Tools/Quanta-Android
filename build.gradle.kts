@@ -65,7 +65,6 @@ afterEvaluate {
                     archiveClassifier.set("sources")
                     from(android.sourceSets["main"].java.srcDirs)
                 }
-                artifact(sourcesJar)
 
                 // Coordinates
                 groupId    = project.group.toString()
