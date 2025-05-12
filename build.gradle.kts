@@ -114,6 +114,10 @@ afterEvaluate {
         }
     }
 
+    tasks.named("generateMetadataFileForReleasePublication") {
+        dependsOn(tasks.named("sourcesJar"))
+    }
+
     signing {
         val signingKey: String? by project
         val signingPassword: String? by project
