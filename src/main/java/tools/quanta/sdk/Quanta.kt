@@ -466,6 +466,8 @@ object Quanta {
                     body += "$RECORD_SEPARATOR${eventDetails.userData}"
                     eventDetails.abLetters?.let { body += "$RECORD_SEPARATOR$it" }
 
+                    println("Event body: $body")
+
                     val headers = mutableMapOf<String, String>()
                     headers["Content-Type"] = "text/plain"
                     localStorageManager.getString("tools.quanta.ab.version")?.let {
