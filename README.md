@@ -10,7 +10,7 @@ This is the official Android SDK for Quanta.tools.
 
 Add the following to your module-level `build.gradle.kts` file and use the latest version:
 
-![latest version shield](https://img.shields.io/github/v/release/Quanta-Tools/Quanta-Android)
+![latest version shield](https://img.shields.io/github/v/release/Quanta-Tools/Quanta-Android?style=flat-square)
 
 ```gradle
 dependencies {
